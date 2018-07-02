@@ -1,0 +1,123 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "proto/consignment/consignment.proto",
+    "version": "version not set"
+  },
+  "schemes": [
+    "http",
+    "https"
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/Consignment/CreateConsignment": {
+      "post": {
+        "operationId": "CreateConsignment",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/consignmentResponse"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/consignmentConsignment"
+            }
+          }
+        ],
+        "tags": [
+          "ShippingService"
+        ]
+      }
+    },
+    "/Consignment/GetConsignments": {
+      "get": {
+        "operationId": "GetConsignments",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/consignmentResponse"
+            }
+          }
+        },
+        "tags": [
+          "ShippingService"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "consignmentConsignment": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "weight": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "containers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/consignmentContainer"
+          }
+        },
+        "vessel_id": {
+          "type": "string"
+        }
+      }
+    },
+    "consignmentContainer": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "customer_id": {
+          "type": "string"
+        },
+        "origin": {
+          "type": "string"
+        },
+        "user_id": {
+          "type": "string"
+        }
+      }
+    },
+    "consignmentResponse": {
+      "type": "object",
+      "properties": {
+        "created": {
+          "type": "boolean",
+          "format": "boolean"
+        },
+        "consignment": {
+          "$ref": "#/definitions/consignmentConsignment"
+        },
+        "consignments": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/consignmentConsignment"
+          },
+          "title": "Added a pluralised consignment to our generic response message"
+        }
+      }
+    }
+  }
+}

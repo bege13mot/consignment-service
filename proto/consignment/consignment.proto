@@ -1,0 +1,45 @@
+syntax = "proto3";
+
+package consignment;
+
+import "google/api/annotations.proto";
+
+service ShippingService {
+  rpc CreateConsignment(Consignment) returns (Response) {
+  option (google.api.http) = {
+      post: "/Consignment/CreateConsignment"
+      body: "*"
+  };
+  }
+  rpc GetConsignments(GetRequest) returns (Response) {
+  option (google.api.http) = {
+      get: "/Consignment/GetConsignments"
+  };
+  }
+}
+
+message Consignment {
+  string id = 1;
+  string description = 2;
+  int32 weight = 3;
+  repeated Container containers = 4;
+  string vessel_id = 5;
+}
+
+message Container {
+  string id = 1;
+  string customer_id = 2;
+  string origin = 3;
+  string user_id = 4;
+}
+
+message Response {
+  bool created = 1;
+  Consignment consignment = 2;
+
+  // Added a pluralised consignment to our generic response message
+  repeated Consignment consignments = 3;
+}
+
+// Created a blank get request
+message GetRequest {}
