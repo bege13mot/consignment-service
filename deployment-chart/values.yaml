@@ -1,0 +1,14 @@
+# Default values for chart.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+revision: latest
+
+grafanaPort: 3000
+prometheusPort: 9090
+
+config:
+  dbHost: "mongo:27017"
+  grpcPort: 50051
+  httpPort: 8080
+  vesselAddr: "vessel:50053"
+  userAddr: "user:50054"

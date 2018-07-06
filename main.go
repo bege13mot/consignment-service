@@ -25,7 +25,7 @@ import (
 
 const (
 	defaultGrpcAddr     = "localhost:50051"
-	defaultGrpcHTTPAddr = "10.0.0.65:8082"
+	defaultGrpcHTTPAddr = "localhost:8082"
 
 	defaultVesselAddress = "localhost:50053"
 	defaultUserAddress   = "localhost:50054"
@@ -44,6 +44,13 @@ var (
 	consulAddr   = os.Getenv("CONSUL_ADDR")
 	vesselAddr   = os.Getenv("VESSEL_ADDR")
 	userAddr     = os.Getenv("USER_ADDR")
+
+	// BuildTime is a time label of the moment when the binary was built
+	BuildTime = "unset"
+	// Version is a last commit hash at the moment when the binary was built
+	Version = "unset"
+	// Branch name
+	Branch = "unset"
 )
 
 func initVar() {
@@ -64,6 +71,11 @@ func initVar() {
 		log.Println("Use default Consul connection settings")
 		consulAddr = defaultConsulAddr
 	}
+
+	log.Printf(
+		"Starting the service...\ncommit: %s, build time: %s, release: %s",
+		Version, BuildTime, Branch,
+	)
 }
 
 // allowCORS allows Cross Origin Resoruce Sharing from any origin.
@@ -86,7 +98,7 @@ func preflightHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Headers", strings.Join(headers, ","))
 	methods := []string{"GET", "HEAD", "POST", "PUT", "DELETE"}
 	w.Header().Set("Access-Control-Allow-Methods", strings.Join(methods, ","))
-	fmt.Printf("CORS preflight request for %s \n", r.URL.Path)
+	log.Printf("CORS preflight request for %s \n", r.URL.Path)
 }
 
 // AuthInterceptor is a high-order function which takes a HandlerFunc
@@ -96,9 +108,6 @@ func preflightHandler(w http.ResponseWriter, r *http.Request) {
 // If valid, the call is passed along to the handler. If not,
 // an error is returned.
 func AuthInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
-
-	//monitoring
-	grpc_prometheus.UnaryServerInterceptor(ctx, req, info, handler)
 
 	meta, _ := metadata.FromIncomingContext(ctx)
 	token := meta["authorization"]
@@ -121,17 +130,14 @@ func AuthInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServe
 	}
 	log.Println("Auth resp:", authResp)
 
-	return handler(ctx, req)
+	//monitoring
+	return grpc_prometheus.UnaryServerInterceptor(ctx, req, info, handler) //handler(ctx, req)
 }
 
 func main() {
 
 	// Database host from the environment variables
 	initVar()
-	// host := os.Getenv("DB_HOST")
-	// if host == "" {
-	// 	host = defaultDbHost
-	// }
 
 	session, err := CreateSession(dbHost)
 
@@ -154,7 +160,6 @@ func main() {
 
 	vesselClient := vesselProto.NewVesselServiceClient(conn)
 
-	////////////////////
 	//Connect to Consul
 	config := consulapi.DefaultConfig()
 	config.Address = consulAddr
@@ -169,10 +174,10 @@ func main() {
 	defer func() {
 		cErr := consul.Agent().ServiceDeregister(serviceID)
 		if cErr != nil {
-			log.Println("Cant add service to Consul", cErr)
+			log.Println("Can't remover service to Consul", cErr)
 			return
 		}
-		log.Println("Deregistered in Consul", serviceID)
+		log.Println("Remover from Consul", serviceID)
 	}()
 
 	err = consul.Agent().ServiceRegister(&consulapi.AgentServiceRegistration{
@@ -192,7 +197,7 @@ func main() {
 	}
 	log.Println("Registered in Consul", serviceID)
 
-	//Test section
+	//Get User-service from Consul
 	health, _, err := consul.Health().Service("user-service", "", false, nil)
 	if err != nil {
 		log.Println("Cant get alive services")
@@ -200,12 +205,10 @@ func main() {
 
 	fmt.Println("HEALTH: ", len(health))
 	for _, item := range health {
-		fmt.Println("Checks: ", item.Checks, item.Checks.AggregatedStatus())
-		fmt.Println("Service: ", item.Service.ID, item.Service.Address, item.Service.Port)
-		fmt.Println("--- ")
-	}
+		log.Println("Checks: ", item.Checks, item.Checks.AggregatedStatus())
+		log.Println("Service: ", item.Service.ID, item.Service.Address, item.Service.Port)
 
-	////////////////////
+	}
 
 	// fire the gRPC server in a goroutine anonymous function
 	go func() {

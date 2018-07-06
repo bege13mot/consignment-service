@@ -1,0 +1,76 @@
+syntax = "proto3";
+
+package grpc.health.v1;
+
+import "google/api/annotations.proto";
+
+service Auth {
+
+  rpc Create(User) returns (Response) {
+  option (google.api.http) = {
+      post: "/Auth/Create"
+      body: "*"
+  };
+  }
+
+  rpc Auth(User) returns (Token) {
+  option (google.api.http) = {
+      post: "/Auth/Auth"
+      body: "*"
+  };
+  }
+
+  rpc Get(User) returns (Response) {}
+
+  rpc GetAll(Request) returns (Response) {}
+
+  rpc ValidateToken(Token) returns (Token) {}
+
+}
+
+service Health {
+  rpc Check(HealthCheckRequest) returns (HealthCheckResponse);
+}
+
+
+
+message User {
+    string id = 1;
+    string name = 2;
+    string company = 3;
+    string email = 4;
+    string password = 5;
+}
+
+message Request {}
+
+message Response {
+    User user = 1;
+    repeated User users = 2;
+    repeated Error errors = 3;
+}
+
+message Token {
+    string token = 1;
+    bool valid = 2;
+    repeated Error errors = 3;
+}
+
+message Error {
+    int32 code = 1;
+    string description = 2;
+}
+
+
+message HealthCheckRequest {
+  string service = 1;
+}
+
+message HealthCheckResponse {
+  enum ServingStatus {
+    UNKNOWN = 0;
+    SERVING = 1;
+    NOT_SERVING = 2;
+  }
+  ServingStatus status = 1;
+}

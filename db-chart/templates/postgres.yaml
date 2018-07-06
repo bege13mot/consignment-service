@@ -1,0 +1,82 @@
+# https://github.com/CrunchyData/crunchy-containers/blob/master/examples/helm/statefulset/templates/set.yaml
+---
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  namespace: kube-system
+  name: fast
+  annotations:
+    storageclass.beta.kubernetes.io/is-default-class: "true"
+  labels:
+    addonmanager.kubernetes.io/mode: Reconcile
+provisioner: k8s.io/minikube-hostpath
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  labels:
+    name: postgres
+spec:
+  ports:
+  - port: {{ .Values.postgresConfig.dbPort }}
+    targetPort: {{ .Values.postgresConfig.dbPort }}
+  clusterIP: None
+  selector:
+    role: postgres
+---
+apiVersion: apps/v1beta1
+kind: StatefulSet
+metadata:
+  name: postgres
+spec:
+  serviceName: "postgres"
+  replicas: {{ .Values.postgresConfig.replicas }}
+  template:
+    metadata:
+      labels:
+        role: postgres
+        environment: test
+    spec:
+      terminationGracePeriodSeconds: 10
+      containers:
+        - name: postgres
+          image: crunchydata/crunchy-postgres:centos7-9.6.8-1.8.2
+          env:
+            - name: PGHOST
+              value: "/tmp"
+            - name: PG_PRIMARY_USER
+              value: "primaryuser"
+            - name: PG_MODE
+              value: "set"
+            - name: PG_PRIMARY_HOST
+              value: "pgset-primary"
+            - name: PG_REPLICA_HOST
+              value: "pgset-replica"
+            - name: PG_PRIMARY_PORT
+              value: "{{ .Values.postgresConfig.dbPort }}"
+            - name: PG_PRIMARY_PASSWORD
+              value: "password"
+            - name: PG_USER
+              value: "testuser"
+            - name: PG_PASSWORD
+              value: "password"
+            - name: PG_DATABASE
+              value: "userdb"
+            - name: PG_ROOT_PASSWORD
+              value: "password"
+          ports:
+            - containerPort: {{ .Values.postgresConfig.dbPort }}
+          volumeMounts:
+            - mountPath: /pgdata
+              name: postgres-persistent-storage
+  volumeClaimTemplates:
+  - metadata:
+      name: postgres-persistent-storage
+      annotations:
+        volume.beta.kubernetes.io/storage-class: "fast"
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1Gi

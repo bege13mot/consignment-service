@@ -1,4 +1,8 @@
-build: buildApi buildProxy buildSwagger
+VERSION?=$(shell git rev-parse HEAD)
+BRANCH?=$(shell git rev-parse --abbrev-ref HEAD)
+BUILD_TIME?=$(shell date -u '+%Y-%m-%d_%H:%M:%S')
+
+build: buildApi buildProxy buildSwagger buildLocal
 
 buildApi:
 	protoc -I/usr/local/include -I. \
@@ -21,41 +25,17 @@ buildSwagger:
 		--swagger_out=logtostderr=true:. \
 		proto/consignment/consignment.proto
 
-# build:
-# 	#protoc -I. --go_out=plugins=grpc
-# 	protoc -I. --go_out=plugins=grpc:$(GOPATH)/src/github.com/testProject/shippy-consignment-service-new \
-# 	  proto/consignment/consignment.proto
-# 	# GOOS=linux GOARCH=amd64 go build
-# 	# docker build -t shippy-consignment-service-new .
-# 	# docker build -t ewanvalentine/consignment:latest .
-# 	# docker push ewanvalentine/consignment:latest
+buildLocal:
+	go build \
+		-ldflags="-X main.Version=${VERSION} \
+		-X main.Branch=${BRANCH} \
+		-X main.BuildTime=${BUILD_TIME}"
 
-# build:
-# 	protoc -I/usr/local/include -I. \
-#   	-I$(GOPATH)/src \
-#   	-I$(GOPATH)/src/github.com/grpc-ecosystem/grpc-gateway/third_party/googleapis \
-# 		--go_out=plugins=grpc:$(GOPATH)/src/github.com/testProject/consignment-service \
-# 		proto/consignment/consignment.proto
-#
-# buildProxy:
-# 	protoc -I/usr/local/include -I. \
-#   	-I$(GOPATH)/src \
-#   	-I$(GOPATH)/src/github.com/grpc-ecosystem/grpc-gateway/third_party/googleapis \
-# 		--grpc-gateway_out=logtostderr=true:. \
-# 		proto/consignment/consignment.proto
-
-run:
-	docker run -d --net="host" \
-		-p 50052 \
-		-e MICRO_SERVER_ADDRESS=:50052 \
-		-e MICRO_REGISTRY=mdns \
-		-e DISABLE_AUTH=true \
-		consignment-service
+dockerPush:
+	docker build -t bege13mot/consignment-service:latest .
+	docker push bege13mot/consignment-service:latest
 
 deploy:
-	sed "s/{{ UPDATED_AT }}/$(shell date)/g" ./deployments/deployment.tmpl > ./deployments/deployment.yml
-	kubectl replace -f ./deployments/deployment.yml
-
-
-# run:
-# 	docker run -p 50051:50051 consignment-service
+	# helm upgrade --install db db-chart
+	# helm upgrade --install monitoring monitoring-chart
+	helm upgrade --install consignment-service deployment-chart

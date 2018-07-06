@@ -1,45 +1,18 @@
-# # We use the official golang image, which contains all the
-# # correct build tools and libraries. Notice `as builder`,
-# # this gives this container a name that we can reference later on.
-# FROM golang:1.10 as builder
-#
-# # Set our workdir to our current service in the gopath
-# WORKDIR /go/src/github.com/testProject/consignment-service
-#
-# # Copy the current code into our workdir
-# COPY . .
-#
-# # Here we're pulling in godep, which is a dependency manager tool,
-# # we're going to use dep instead of go get, to get around a few
-# # quirks in how go get works with sub-packages.
-# RUN go get -u github.com/golang/dep/cmd/dep
-#
-# # Create a dep project, and run `ensure`, which will pull in all
-# # of the dependencies within this directory.
-# RUN dep init && dep ensure
-#
-# # Build the binary, with a few flags which will allow
-# # us to run this binary in Alpine.
-# RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo .
+FROM golang:1.10 AS builder
 
-# Here we're using a second FROM statement, which is strange,
-# but this tells Docker to start a new build process with this
-# image.
-FROM alpine:latest
+# Download and install the latest release of dep
+ADD https://github.com/golang/dep/releases/download/v0.4.1/dep-linux-amd64 /usr/bin/dep
+RUN chmod +x /usr/bin/dep
 
-# Security related package, good to have.
-RUN apk --no-cache add ca-certificates
+# Copy the code from the host and compile it
+WORKDIR $GOPATH/src/github.com/bege13mot/consignment-service
+COPY Gopkg.toml Gopkg.lock ./
+RUN dep ensure --vendor-only
+COPY . ./
 
-# Same as before, create a directory for our app.
-RUN mkdir /app
-WORKDIR /app
+# CGO_ENABLED=0 is an environment variable that tells to the compiler to disable the support for linking C code. As a result, the resulting binary will not be able to depend on the C system libraries. The point is that in a scratch container, there are no system libraries. If we omit this directive, the Docker build will terminate successfully, but the resulting container will crash with funny errors.
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-X main.Version=$(git rev-parse HEAD) -X main.Branch=$(git rev-parse --abbrev-ref HEAD) -X main.BuildTime=$(date -u '+%Y-%m-%d_%H:%M:%S')" -a -installsuffix nocgo -o /consignment-service .
 
-# Here, instead of copying the binary from our host machine,
-# we pull the binary from the container named `builder`, within
-# this build context. This reaches into our previous image, finds
-# the binary we built, and pulls it into this container. Amazing!
-# COPY --from=builder /go/src/github.com/testProject/consignment-service/consignment-service .
-
-ADD shippy-consignment-service-new /app/shippy-consignment-service-new
-
-CMD ["./shippy-consignment-service-new"]
+FROM scratch
+COPY --from=builder /consignment-service ./
+ENTRYPOINT ["./consignment-service"]
